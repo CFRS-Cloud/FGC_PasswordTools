@@ -11,8 +11,8 @@ The basic usage is:
 ##
 
 ```
-String encodedHashedPassword = uk.org.cambsfire.security.encode("rawPassword");
-boolean passwordsMatch = PasswordEncoder.matches("rawPassword", encodedHashedPassword);
+String encodedHashedPassword = uk.org.cambsfire.security.PasswordEncoder.encode("rawPassword");
+boolean passwordsMatch = uk.org.cambsfire.security.PasswordEncoder.matches("rawPassword", encodedHashedPassword);
 ```
 
 

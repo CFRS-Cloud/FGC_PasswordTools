@@ -8,18 +8,18 @@ package uk.org.cambsfire.security;
  * %%
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice, this
  *    list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the Cambridgeshire Fire and Rescue Service nor the names of its contributors
  *    may be used to endorse or promote products derived from this software without
  *    specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
@@ -33,11 +33,11 @@ package uk.org.cambsfire.security;
  * #L%
  */
 
-
 import javax.xml.bind.DatatypeConverter;
 
 @SuppressWarnings({ "PMD.MethodReturnsInternalArray", "PMD.ArrayIsStoredDirectly" })
 public class EncodedPassword {
+    private static final int CURRENT_VERSION = 1;
     private static final int HEX_RADIX = 16;
     private static final int MAX_ENCODED_PASSWORD_CHARS = 1024;
     private static final String ENCODED_VALUE_DELIMITER = ".";
@@ -49,6 +49,10 @@ public class EncodedPassword {
         this.salt = salt;
         this.numIterations = iterations;
         this.passwordHash = passwordHash;
+    }
+
+    public int getVersion() {
+        return CURRENT_VERSION;
     }
 
     public byte[] getSalt() {
@@ -64,33 +68,56 @@ public class EncodedPassword {
     }
 
     public static EncodedPassword parse(final String encodedPasswordString) {
-        final int indexOfEndOfSalt = encodedPasswordString.indexOf(ENCODED_VALUE_DELIMITER);
+        final String saltAndPasswordString = verifyAndRemoveVersion(encodedPasswordString);
+
+        final int indexOfEndOfSalt = saltAndPasswordString.indexOf(ENCODED_VALUE_DELIMITER);
         if (indexOfEndOfSalt < 0) {
             throw new EncodedPasswordException("Encoded password should contain a salt");
         }
         final int indexOfEndOfIterations =
-                encodedPasswordString.indexOf(ENCODED_VALUE_DELIMITER, indexOfEndOfSalt + 1);
+                saltAndPasswordString.indexOf(ENCODED_VALUE_DELIMITER, indexOfEndOfSalt + 1);
         if (indexOfEndOfIterations < 0) {
             throw new EncodedPasswordException("Encoded password should contain number of iterations");
         }
         try {
-            final String b64Salt = encodedPasswordString.substring(0, indexOfEndOfSalt);
-            final String hexIterations = encodedPasswordString.substring(indexOfEndOfSalt + 1, indexOfEndOfIterations);
-            final String b64EncodedPassword = encodedPasswordString.substring(indexOfEndOfIterations + 1);
+            final String b64Salt = saltAndPasswordString.substring(0, indexOfEndOfSalt);
+            final String hexIterations = saltAndPasswordString.substring(indexOfEndOfSalt + 1, indexOfEndOfIterations);
+            final String b64EncodedPassword = saltAndPasswordString.substring(indexOfEndOfIterations + 1);
 
             return new EncodedPassword(DatatypeConverter.parseBase64Binary(b64Salt),
                     Integer.parseInt(hexIterations, HEX_RADIX),
                     DatatypeConverter.parseBase64Binary(b64EncodedPassword));
         } catch (final IndexOutOfBoundsException | NumberFormatException e) {
-            throw new EncodedPasswordException("Unable to read encoded password: " + encodedPasswordString, e);
+            throw new EncodedPasswordException("Unable to read encoded password: " + saltAndPasswordString, e);
         }
     }
 
+    private static String verifyAndRemoveVersion(final String encodedPasswordString) {
+        if (!encodedPasswordString.startsWith(CURRENT_VERSION + ENCODED_VALUE_DELIMITER)) {
+            throw new EncodedPasswordException("Unknown verson of encoded password: " + encodedPasswordString);
+        }
+        final int endOfVersionDelimiterIndex = encodedPasswordString.indexOf(ENCODED_VALUE_DELIMITER);
+        final String saltAndPasswordString =
+                encodedPasswordString.substring(endOfVersionDelimiterIndex + 1);
+        return saltAndPasswordString;
+    }
+
+    /**
+     * Encodes the password with the salt and iterations in the form:
+     * <p>
+     * <code>&lt;ENCODER VERSION&gt;.&lt;SALT&gt;.&lt;NUM ITERATIONS (hex)&gt;.&lt;ENCODED PASSWORD&gt;</code>
+     * </p>
+     * <p>
+     * For EncoderVersion see {@link EncodedPassword.CURRENT_VERSION}
+     * </p>
+     */
     public String asEncodedString() {
         final String base64Salt = DatatypeConverter.printBase64Binary(salt);
         final String hexIterations = Integer.toHexString(numIterations);
         final String b64PasswordHash = DatatypeConverter.printBase64Binary(passwordHash);
         return new StringBuilder(MAX_ENCODED_PASSWORD_CHARS)
+                .append(CURRENT_VERSION)
+                .append(ENCODED_VALUE_DELIMITER)
                 .append(base64Salt)
                 .append(ENCODED_VALUE_DELIMITER)
                 .append(hexIterations)

@@ -50,7 +50,6 @@ public class PasswordEncoderTest {
         // then
         final EncodedPassword encodedPassword = EncodedPassword.parse(encodedPasswordWithSalt);
         assertThat(encodedPassword.getNumIterations()).isEqualTo(numIterations);
-
     }
 
     @Test

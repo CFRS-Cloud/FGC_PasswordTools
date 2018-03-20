@@ -6,6 +6,9 @@ target/
 .pmdruleset.xml
 .checkstyle
 
+### JRebel ###
+rebel.xml
+
 ### STS ###
 .classpath
 .factorypath
